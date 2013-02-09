@@ -14,6 +14,9 @@ import javax.servlet.ServletConfig
 
 import scala.collection.mutable.HashMap
 import scala.collection.JavaConverters._
+import org.reflections.util.{ConfigurationBuilder, ClasspathHelper, FilterBuilder}
+import org.reflections.scanners.{TypeAnnotationsScanner, SubTypesScanner}
+import org.reflections.Reflections
 
 object ApiListingResource {
   var _cache: Option[Map[String, Class[_]]] = None
@@ -27,9 +30,8 @@ object ApiListingResource {
     _cache match {
       case Some(cache) => cache
       case None => {
-        val resources = app.getClasses().asScala ++ app.getSingletons().asScala.map(ref => ref.getClass)
         val cache = new HashMap[String, Class[_]]
-        resources.foreach(resource => {
+        apiAnnotatedTypes.foreach(resource => {
           resource.getAnnotation(classOf[Api]) match {
             case ep: Annotation => {
               val path = ep.value.startsWith("/") match {
@@ -45,6 +47,18 @@ object ApiListingResource {
         cache
       }
     }
+  }
+
+  /**
+   * Returns Set of classes/interfaces with the [[com.wordnik.swagger.annotations.Api]] annotation
+   */
+  def apiAnnotatedTypes() = {
+    val reflections = new Reflections(new ConfigurationBuilder()
+      .setUrls(ClasspathHelper.forClassLoader())
+      .setScanners(new TypeAnnotationsScanner(), new SubTypesScanner())
+      .filterInputsBy(new FilterBuilder.Exclude(FilterBuilder.prefix("com.wordnik.swagger.jaxrs")))
+    )
+    reflections.getTypesAnnotatedWith(classOf[Api]).asScala
   }
 }
 

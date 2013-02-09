@@ -87,5 +87,11 @@
       <version>${jersey-version}</version>
       <scope>compile</scope>
     </dependency>
+	<dependency>
+	    <groupId>org.reflections</groupId>
+	    <artifactId>reflections</artifactId>
+	    <version>${org-reflections-version}</version>
+	    <scope>compile</scope>
+	</dependency>
   </dependencies>
 </project>
