@@ -1,156 +1,66 @@
 package com.wordnik.swagger.jaxrs.listing
 
-import com.wordnik.swagger.core.{ Documentation, DocumentationEndPoint }
-import com.wordnik.swagger.annotations._
-import com.wordnik.swagger.jaxrs._
-
-import java.lang.annotation.Annotation
-
-import javax.ws.rs.core.{ UriInfo, HttpHeaders, Context, Response, MediaType, Application }
-import javax.ws.rs.core.Response._
-import javax.ws.rs._
-
-import javax.servlet.ServletConfig
-
-import scala.collection.mutable.HashMap
+import javax.ws
+import ws.rs.core.Response
+import ws.rs.core.Response.Status
+import ws.rs.{PathParam, Path, GET}
+import com.wordnik.swagger.annotations.Api
+import com.wordnik.swagger.core.{DocumentationEndPoint, Documentation}
 import scala.collection.JavaConverters._
-import org.reflections.util.{ConfigurationBuilder, ClasspathHelper, FilterBuilder}
-import org.reflections.scanners.{TypeAnnotationsScanner, SubTypesScanner}
-import org.reflections.Reflections
+import com.wordnik.swagger.jaxrs.JaxrsApiReader
+import ApiListing._
 
-object ApiListingResource {
-  var _cache: Option[Map[String, Class[_]]] = None
-
-  def routes(
-    app: Application,
-    sc: ServletConfig,
-    headers: HttpHeaders,
-    uriInfo: UriInfo
-  ) = {
-    _cache match {
-      case Some(cache) => cache
-      case None => {
-        val cache = new HashMap[String, Class[_]]
-        apiAnnotatedTypes.foreach(resource => {
-          resource.getAnnotation(classOf[Api]) match {
-            case ep: Annotation => {
-              val path = ep.value.startsWith("/") match {
-                case true => ep.value.substring(1)
-                case false => ep.value
-              }
-              cache += path -> resource
-            }
-            case _ => 
-          }
-        })
-        _cache = Some(cache.toMap)
-        cache
-      }
-    }
-  }
-
-  /**
-   * Returns Set of classes/interfaces with the [[com.wordnik.swagger.annotations.Api]] annotation
-   */
-  def apiAnnotatedTypes() = {
-    val reflections = new Reflections(new ConfigurationBuilder()
-      .setUrls(ClasspathHelper.forClassLoader())
-      .setScanners(new TypeAnnotationsScanner(), new SubTypesScanner())
-      .filterInputsBy(new FilterBuilder.Exclude(FilterBuilder.prefix("com.wordnik.swagger.jaxrs")))
-    )
-    reflections.getTypesAnnotatedWith(classOf[Api]).asScala
-  }
+object ApiListing {
+  //TODO Revisit how these are loaded (from annotation?)
+  JaxrsApiReader.setFormatString("")
+  val apiVersion = "0.2"
+  val swaggerVersion = "1.1"
+  val basePath = ""
 }
 
-class ApiListing {
+//TODO: Need to add in the proper slf4j logger trait
+class ApiListing extends ApiLocator {
+
   @GET
-  def resourceListing(
-    @Context app: Application,
-    @Context sc: ServletConfig,
-    @Context headers: HttpHeaders,
-    @Context uriInfo: UriInfo
-  ): Response = {
-    val listingRoot = this.getClass.getAnnotation(classOf[Api]).value
-
-    val reader = ConfigReaderFactory.getConfigReader(sc)
-    val apiFilterClassName = reader.apiFilterClassName()
-    val apiVersion = reader.apiVersion()
-    val swaggerVersion = reader.swaggerVersion()
-    val basePath = reader.basePath()
-    val routes = ApiListingResource.routes(app, sc, headers, uriInfo)
-
-    val apis = (for(route <- routes.map(m => m._1)) yield {
-      docForRoute(route, app, sc, headers, uriInfo) match {
-        case Some(doc) if(doc.getApis !=null && doc.getApis.size > 0) => {
-          Some(new DocumentationEndPoint(listingRoot + JaxrsApiReader.FORMAT_STRING + doc.resourcePath, ""))
-        }
-        case _ => None
-      }
-    }).flatten.toList
-
-    val doc = new Documentation()
-    doc.apiVersion = apiVersion
-    doc.swaggerVersion = swaggerVersion
-    doc.basePath = basePath
-    doc.setApis(apis.asJava)
-
-    Response.ok.entity(doc).build
+  def resourceListing(): Response = {
+    val doc = new Documentation(apiVersion, swaggerVersion, basePath, null)
+    doc.setApis(loadApiRoutes().asJava)
+    Response.ok(doc).build()
   }
 
-  /**
-   * individual api listing
-   **/
   @GET
-  @Path("/{route: .+}")
-  def apiListing(
-    @PathParam("route") route: String,
-    @Context app: Application,
-    @Context sc: ServletConfig,
-    @Context headers: HttpHeaders,
-    @Context uriInfo: UriInfo
-  ): Response = {
-    docForRoute(route, app, sc, headers, uriInfo) match {
+  //TODO Dropped out the odd {.format}, still needed?
+  @Path("/{route}")
+  def apiListing(@PathParam("route") route: String): Response = {
+    createDocForRoute(route) match {
       case Some(doc) => Response.ok.entity(doc).build
       case None => Response.status(Status.NOT_FOUND).build
     }
   }
 
-  def docForRoute(
-    route: String,
-    app: Application,
-    sc: ServletConfig,
-    headers: HttpHeaders,
-    uriInfo: UriInfo
-  ): Option[Documentation] = {
-    val reader = ConfigReaderFactory.getConfigReader(sc)
-    val apiFilterClassName = reader.apiFilterClassName()
-    val apiVersion = reader.apiVersion()
-    val swaggerVersion = reader.swaggerVersion()
-    val basePath = reader.basePath()
-    val routes = ApiListingResource.routes(app, sc, headers, uriInfo)
-
-    routes.contains(route) match {
-      case true => {
-        val cls = routes(route)
-        cls.getAnnotation(classOf[Api]) match {
-          case currentApiEndPoint: Annotation => {
-            val apiPath = currentApiEndPoint.value
-            val apiListingPath = currentApiEndPoint.value
-            val doc = new HelpApi(apiFilterClassName).filterDocs(
-              JaxrsApiReader.read(cls, apiVersion, swaggerVersion, basePath, apiPath),
-              headers,
-              uriInfo,
-              apiListingPath,
-              apiPath)
-            doc.basePath = basePath
-            doc.apiVersion = apiVersion
-            doc.swaggerVersion = swaggerVersion
-            Some(doc)
-          }
-          case _ => None
-        }
+  protected def loadApiRoutes(): List[DocumentationEndPoint] = {
+    val listingRoot = determineListingRoot()
+    //TODO: The following is hard to read
+    val apis = for ((route, value) <- resolveApiRoutes) yield {
+      createDocForRoute(route) match {
+        case Some(doc) if validDoc(doc) => Some(new DocumentationEndPoint(listingRoot + doc.resourcePath, ""))
+        case _ => None
       }
-      case _ => None
     }
+    apis.flatten.toList
+  }
+
+  protected def determineListingRoot() = if (getClass.isAnnotationPresent(classOf[Api])) getClass.getAnnotation(classOf[Api]).value else "/"
+  protected def validDoc(doc: Documentation): Boolean = doc.getApis != null && doc.getApis.size > 0
+
+  protected def createDocForRoute(route: String): Option[Documentation] = {
+    val routes = resolveApiRoutes
+    if (routes.contains(route)) Some(createDoc(routes(route))) else None
+  }
+
+  protected def createDoc(apiClass: Class[_]): Documentation = {
+    //TODO: Using the reflections lib, the following will always work, but not so sure with the jax-rs App class
+    val apiPath = apiClass.getAnnotation(classOf[Api]).value
+    JaxrsApiReader.read(apiClass, apiVersion, swaggerVersion, basePath, apiPath)
   }
 }

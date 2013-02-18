@@ -431,11 +431,11 @@
         <artifactId>jersey-client</artifactId>
         <version>${jersey-version}</version>
       </dependency>
-	  <dependency>
-		<groupId>org.reflections</groupId>
-		<artifactId>reflections</artifactId>
-		<version>${org-reflections-version}</version>
-	  </dependency>
+      <dependency>
+        <groupId>org.reflections</groupId>
+        <artifactId>reflections</artifactId>
+        <version>${org-reflections-version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <pluginRepositories>
@@ -460,7 +460,7 @@
     <scala-test-version>1.6.1</scala-test-version>
     <jetty-version>7.6.0.v20120127</jetty-version>
     <servlet-api-version>2.5</servlet-api-version>
-	<org-reflections-version>0.9.8</org-reflections-version>
+    <org-reflections-version>0.9.8</org-reflections-version>
     <scala-maven-plugin-version>3.1.0</scala-maven-plugin-version>
   </properties>
 </project>
