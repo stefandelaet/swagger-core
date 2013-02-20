@@ -29,8 +29,7 @@ class ApiListing extends ApiLocator {
   }
 
   @GET
-  //TODO Dropped out the odd {.format}, still needed?
-  @Path("/{route}")
+  @Path("/{route: .+}")
   def apiListing(@PathParam("route") route: String): Response = {
     createDocForRoute(route) match {
       case Some(doc) => Response.ok.entity(doc).build
