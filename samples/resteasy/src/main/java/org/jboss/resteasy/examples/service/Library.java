@@ -1,29 +1,29 @@
 package org.jboss.resteasy.examples.service;
 
-import com.wordnik.swagger.annotations.*;
-
+import com.wordnik.swagger.annotations.Api;
+import com.wordnik.swagger.annotations.ApiError;
+import com.wordnik.swagger.annotations.ApiErrors;
+import com.wordnik.swagger.annotations.ApiOperation;
+import org.jboss.resteasy.annotations.providers.jaxb.json.BadgerFish;
 import org.jboss.resteasy.examples.data.Book;
 import org.jboss.resteasy.examples.data.BookListing;
-import org.jboss.resteasy.annotations.providers.jaxb.json.BadgerFish;
 import org.jboss.resteasy.plugins.providers.jaxb.json.BadgerContext;
 import org.jboss.resteasy.plugins.providers.jaxb.json.JettisonMappedContext;
 
-import javax.ws.rs.Path;
 import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.PathParam;
 import javax.xml.bind.Marshaller;
-import java.util.HashMap;
-import java.util.ArrayList;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  * @version $Revision: 1 $
  */
-@Api(value = "/library", 
-   description = "the Library api")
-@Path("/library.json")
+@Api(value = "/library", description = "the Library api")
+@Path("/library")
 public class Library
 {
    private HashMap<String, Book> books = new HashMap<String, Book>();
@@ -50,7 +50,6 @@ public class Library
    @Produces("application/json")
    @ApiOperation(value = "gets books with mapped", notes = "gets books with @Mapped", responseClass = "org.jboss.resteasy.examples.data.BookListing")
    @ApiErrors(value = { @ApiError(code = 400, reason = "Not sure"), @ApiError(code = 404, reason = "bad") })
-   //@Mapped // mapped is the default format
    public BookListing getBooksMapped()
    {
       return getListing();
