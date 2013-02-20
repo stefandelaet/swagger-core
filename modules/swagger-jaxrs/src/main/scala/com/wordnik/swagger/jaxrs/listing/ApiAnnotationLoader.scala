@@ -19,8 +19,6 @@ trait ReflectionsApiAnnotationLoader extends ApiAnnotationLoader {
     val config = new ConfigurationBuilder()
       .setUrls(ClasspathHelper.forClassLoader())
       .setScanners(new TypeAnnotationsScanner(), new SubTypesScanner())
-      //TODO: Locate the proper package to use in filter
-      .filterInputsBy(new FilterBuilder.Exclude(FilterBuilder.prefix("com.wordnik.swagger.jaxrs")))
     new Reflections(config).getTypesAnnotatedWith(classOf[Api]).asScala
   }
 }
