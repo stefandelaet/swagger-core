@@ -9,7 +9,7 @@ trait ApiAnnotationLoader {
 }
 
 trait ReflectionsApiAnnotationLoader extends ApiAnnotationLoader {
-  import org.reflections.util.{FilterBuilder, ClasspathHelper, ConfigurationBuilder}
+  import org.reflections.util.{ClasspathHelper, ConfigurationBuilder}
   import org.reflections.scanners.{SubTypesScanner, TypeAnnotationsScanner}
   import org.reflections.Reflections
   import scala.collection.JavaConverters._
